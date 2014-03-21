@@ -24,6 +24,18 @@ function up_debug_menu() {
     'access arguments' => array('access developer information'),
     'type' => MENU_NORMAL_ITEM
   );
+  $items['admin/reports/up/workouts'] = array(
+    'title' => 'UP: Debug Workouts',
+    'page callback' => 'up_debug_workouts',
+    'access arguments' => array('access developer information'),
+    'type' => MENU_NORMAL_ITEM
+  );
+  $items['admin/reports/up/sleeps'] = array(
+    'title' => 'UP: Debug Sleeps',
+    'page callback' => 'up_debug_sleeps',
+    'access arguments' => array('access developer information'),
+    'type' => MENU_NORMAL_ITEM
+  );
   return $items;
 }
 
@@ -50,12 +62,32 @@ function up_debug_today() {
   return t('Debug');
 }
 
+// Seems to fetch the past 24 hours.
 function up_debug_band() {
   $band = up_band_load_by_user($GLOBALS['user']);
   $data = up_api_band($band);
 
   dpm($data, 'data');
+  $output = '';
+
+  foreach ($data->data->ticks as $tick) {
+    $output .= '<li>' . format_date($tick->value->time, 'ago');
+  }
+  return t('<ol>' . $output . '</ol>');
+}
+
+function up_debug_workouts() {
+  $band = up_band_load_by_user($GLOBALS['user']);
+  $data = up_api_workouts($band);
+
+  dpm($data, 'workouts');
   return t('Debug');
 }
 
+function up_debug_sleeps() {
+  $band = up_band_load_by_user($GLOBALS['user']);
+  $data = up_api_sleeps($band);
 
+  dpm($data, 'sleeps');
+  return t('Debug');
+}

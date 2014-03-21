@@ -6,7 +6,8 @@
 
 define ('UP_API_HOST', 'https://jawbone.com');
 define ('UP_API_AUTH', UP_API_HOST . '/user/signin/login');
-define ('UP_API_URL',  UP_API_HOST . '/nudge');
+define ('UP_API_SIZE', 100);
+define ('UP_API_TIMEOUT', 20);
 
 /**
  * Parse an API response.
@@ -67,7 +68,7 @@ function up_api_summary($band) {
     'headers' =>  array('X-Nudge-Token' => $token->token),
   );
 
-  $response = drupal_http_request(UP_API_URL . '/api/users/' . $band->xid . '/social', $options);
+  $response = drupal_http_request(UP_API_HOST . '/nudge/api/users/' . $band->xid . '/social', $options);
   return up_api_response($response);
 }
 
@@ -96,7 +97,7 @@ function up_api_today($band) {
     'headers' => array('x-nudge-token' => $token->token),
   );
 
-  $response = drupal_http_request(UP_API_URL . '/api/users/' . $band->xid . '/healthCredits', $options);
+  $response = drupal_http_request(UP_API_HOST . '/nudge/api/users/' . $band->xid . '/healthCredits', $options);
   return up_api_response($response);
 }
 
@@ -109,7 +110,6 @@ function up_api_band($band, $epoch = 0) {
   $data = array(
     'start_time' => $epoch,
     'end_time' => time(),
-    '_token' => $token->token,
   );
 
   $options = array(
@@ -118,11 +118,114 @@ function up_api_band($band, $epoch = 0) {
     'headers' => array('x-nudge-token' => $token->token),
   );
 
-  $url = UP_API_URL . '/api/users/' . $band->xid . '/band';
-  dpm($url, 'url');
-  dpm($options, 'options');
+  $url = UP_API_HOST . '/nudge/api/users/' . $band->xid . '/band';
 
   $response = drupal_http_request($url, $options);
   return up_api_response($response);
 }
 
+/**
+ * Fetch workouts, optionally specifying an API uri.
+ */
+function _up_api_workouts_uri($band, $epoch = 0, $uri = NULL) {
+  $token = up_token_load($band->bid);
+
+  // Create a start URI if we weren't passed one.
+  if (empty($uri)) {
+    $uri = '/nudge/api/users/' . $band->xid . '/workouts';
+  }
+
+  $data = array(
+    'start_time' => $epoch,
+    'end_time' => time(),
+    'limit' => UP_API_SIZE,
+  );
+
+  $options = array(
+    'method'  => 'GET',
+    'data' => drupal_http_build_query($data),
+    'headers' => array('x-nudge-token' => $token->token),
+  );
+
+  $url = UP_API_HOST . $uri;
+
+  $response = drupal_http_request($url, $options);
+  return up_api_response($response);
+}
+
+/**
+ * Wrapper that can recursively fetch all available workouts.
+ */
+function up_api_workouts($band, $epoch = 0) {
+  $workouts = array();
+  $next = NULL;
+  $timeout = 0;
+
+  do {
+    $data = _up_api_workouts_uri($band, $epoch, $next);
+    if (!empty($data->data->size)) {
+      $workouts = array_merge($workouts, (array)$data->data->items);
+    }
+    if (!empty($data->data->links->next)) {
+      $next = strtr($data->data->links->next, array('&limit=10' => '&limit=' . UP_API_SIZE));
+    }
+    else {
+      $next = NULL;
+    }
+    $timeout++;
+  } while(!empty($next) && $timeout < UP_API_TIMEOUT);
+
+  return $workouts;
+}
+
+/**
+ * Fetch sleeps, optionally specifying an API uri.
+ */
+function _up_api_sleeps_uri($band, $epoch = 0, $uri = NULL) {
+  $token = up_token_load($band->bid);
+
+  // Create a start URI if we weren't passed one.
+  if (empty($uri)) {
+    $uri = '/nudge/api/users/' . $band->xid . '/sleeps';
+  }
+
+  $data = array(
+    'start_time' => $epoch,
+    'end_time' => time(),
+    'limit' => UP_API_SIZE,
+  );
+
+  $options = array(
+    'method'  => 'GET',
+    'data' => drupal_http_build_query($data),
+    'headers' => array('x-nudge-token' => $token->token),
+  );
+
+  $response = drupal_http_request(UP_API_HOST . $uri, $options);
+  return up_api_response($response);
+}
+
+/**
+ * Wrapper that can recursively fetch all available sleeps.
+ */
+function up_api_sleeps($band, $epoch = 0) {
+  $sleeps = array();
+  $next = NULL;
+  $timeout = 0;
+
+  do {
+    $data = _up_api_sleeps_uri($band, $epoch, $next);
+    if (!empty($data->data->size)) {
+      $sleeps = array_merge($sleeps, (array)$data->data->items);
+    }
+    if (!empty($data->data->links->next)) {
+      $next = strtr($data->data->links->next, array('&limit=10' => '&limit=' . UP_API_SIZE));
+    }
+    else {
+      $next = NULL;
+    }
+    $timeout++;
+  } while(!empty($next) && $timeout < UP_API_TIMEOUT);
+
+  return $sleeps;
+}
