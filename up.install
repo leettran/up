@@ -174,3 +174,26 @@ function up_schema() {
   );
   return $schema;
 }
+
+/**
+ * Implements hook_requirements().
+ */
+function up_requirements($phase = 'runtime') {
+  $requirements = array();
+
+  $t = get_t();
+  $override = variable_get('chr_override_drupal_http_request', FALSE);
+
+  $requirements['up'] = array(
+    'title' => $t('Jawbone UP API'),
+    'value' => (empty($override)) ? $t('Your Drupal HTTP Request function is not overridden. Please <a href="!link">configure CHR</a> to do so.', array('!link' => url('admin/config/services/chr'))) : $t('Drupal is configured to use cURL for HTTP Requests.'),
+    'severity' => REQUIREMENT_OK,
+  );
+
+  if (empty($override)) {
+    $requirements['up']['severity'] = REQUIREMENT_ERROR;
+  }
+
+  return $requirements;
+}
+

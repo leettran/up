@@ -1,0 +1,6 @@
+name = Jawbone UP API Debug
+description = Help debug the Jawbone UP module.
+core = 7.x
+
+dependencies[] = up
+dependencies[] = devel

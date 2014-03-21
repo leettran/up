@@ -1,3 +1,5 @@
-name = Jawbone UP
+name = Jawbone UP API
 description = Pull your UP data into Drupal.
 core = 7.x
+
+dependencies[] = chr

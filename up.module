@@ -4,9 +4,8 @@
  * Provides API integration with the Jawbone UP.
  */
 
-define ('UP_HOST', 'https://jawbone.com');
-define ('UP_AUTH', UP_HOST . '/user/signin/login');
-define ('UP_API',  UP_HOST . '/nudge');
+// Load the file that contains the API call wrappers and defines.
+module_load_include('inc', 'up', 'includes/up.api');
 
 /**
  * Implements hook_permission().
@@ -146,6 +145,9 @@ function up_user_profile_form_submit(&$form, &$form_state) {
 
       $token = up_token_create($form_state['values']['up']['#json'], $band->bid);
       up_token_save($token, $bid);
+
+      // Dump a new summary into the database.
+      up_update_summary($band);
     }
     else {
       drupal_set_message(t('The UP API response went missing.'), 'error');
@@ -176,43 +178,6 @@ function up_user_view($account, $view_mode, $langcode) {
 // Helper to fetch movement data.
 //
 // Helper to fetch sleep data.
-
-/**
- * Helper to sanitise a response and handle any errors.
- */
-function up_api_response($response) {
-  // dpm($response, __FUNCTION__);
-
-  // Acceptable responses are in the 2xx range, so make an error out of everything else.
-  if ($response->code < 200 || $response->code >= 300) {
-    watchdog('up', 'A Jawbone UP API error occurred: @error', array('@error' => $response->error), WATCHDOG_ERROR);
-    drupal_set_message(t('A Jawbone UP API error occurred: %error', array('%error' => $response->error)), 'error');
-    return NULL;
-  }
-
-  // Thus an OK response. Whee!
-  return json_decode($response->data);
-}
-
-/**
- * 
- */
-function up_api_authenticate($mail, $password) {
-  // The request payload.
-  $data = array(
-    'email' => $mail,
-    'pwd' => $password,
-    'service' => 'nudge',
-  );
-
-  $options = array(
-    'method' => 'POST',
-    'data' => drupal_http_build_query($data),
-    'timeout' => 10,
-  );
-  $response = drupal_http_request(UP_AUTH, $options);
-  return up_api_response($response);
-}
 
 /**
  * Save an up band to the database.
@@ -275,7 +240,19 @@ function up_token_delete($band) {
  * Retrieve a band authentication token from the database.
  */
 function up_token_load($bid) {
-  return db_select('up_token', 't')->fields('t', array('token'))->condition('bid', $bid)->execute()->fetchField();
+  return db_select('up_token', 't')->fields('t')->condition('bid', $bid)->execute()->fetchObject();
+}
+
+/**
+ * Retrieve a band authentication token from the database.
+ */
+function up_token_load_by_user($account) {
+  $query = db_select('up_token', 't');
+  $query->join('up_band', 'b', 'b.bid = t.bid');
+  $query->fields('t');
+  $query->condition('b.uid', $account->uid);
+
+  return $query->execute()->fetchObject();
 }
 
 /**
@@ -292,7 +269,7 @@ function up_ticks_delete($band) {
  */
 function up_band_image($band) {
   if (!empty($band->image_url)) {
-    return l(t('<img height="64" width="64" class="up" src="@host/@url">', array('@host' => UP_HOST, '@url' => $band->image_url)), UP_HOST, array('html' => TRUE));
+    return l(t('<img height="64" width="64" class="up" src="@host/@url">', array('@host' => UP_API_HOST, '@url' => $band->image_url)), UP_API_HOST, array('html' => TRUE));
   }
   return '';
 }
@@ -339,11 +316,26 @@ function up_token_create($json, $bid) {
 }
 
 /**
+ * Fetch summary and dump it into the database.
+ */
+function up_update_summary($band) {
+  $summary = up_api_summary($band);
+}
+
+/**
+ * Implements hook_cron().
+ */
+function up_cron() {
+  // Fetch summaries.
+  // Update ticks.
+}
+
+/**
  * Implements hook_views_api().
  */
 function up_views_api() {
   return array(
     'api'  => 3,
-    'path' => drupal_get_path('moduke', 'up') . '/includes/views',
+    'path' => drupal_get_path('module', 'up') . '/includes/views',
   );
 }
