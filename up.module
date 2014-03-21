@@ -5,7 +5,8 @@
  */
 
 define ('UP_HOST', 'https://jawbone.com');
-define ('UP_API',  'https://jawbone.com/nudge');
+define ('UP_AUTH', UP_HOST . '/user/signin/login');
+define ('UP_API',  UP_HOST . '/nudge');
 
 /**
  * Implements hook_permission().
@@ -19,26 +20,330 @@ function up_permission() {
 }
 
 /**
- * Implements hook_menu().
+ * Implements hook_form_FORM_ID_alter().
  */
-function up_menu() {
-  $items['user/%user/edit/up'] = array(
-    'title' => 'Jawbone UP',
-    'page callback' => 'up_user_settings',
-    'page arguments' => array(1),
-    'access arguments' => array('add up wristbands'),
-    'weight' => 9,
-    'type' => MENU_LOCAL_TASK,
+function up_form_user_profile_form_alter(&$form, &$form_state) {
+  $band = up_band_load_by_user($form['#user']);
+  $form['#band'] = $band;
+
+  $form['up'] = array(
+    '#type'        => 'fieldset',
+    '#title'       => t('Jawbone UP'),
+    '#description' => (!empty($band)) ? t('Your account is currently linked to the band %band.', array('%band' => $band->short_name)) : '',
+    '#tree'        => TRUE,
   );
-  return $items;
+
+  $form['up']['mail'] = array(
+    '#title'         => t('E-mail'),
+    '#type'          => 'textfield',
+    '#description'   => t('Your Jawbone UP e-mail address. This is the e-mail address you used to register your band. The e-mail address is not made public and will not be used to contact you.'),
+    '#default_value' => (!empty($band)) ? $band->mail : '',
+    '#states'        => array(
+      'required' => array(
+        ':input[name="up[delete]"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+  $form['up']['pass'] = array(
+    '#title'       => t('Password'),
+    '#type'        => 'password',
+    '#description' => t('Your Jawbone UP account password. This password will not be stored in Drupal, it will only be used to retrieve an authentication token.'),
+    '#required'    => TRUE,
+    '#states'      => array(
+      'invisible' => array(
+        ':input[name="up[mail]"]' => array('value' => (!empty($band)) ? $band->mail : ''),
+      ),
+      'optional' => array(
+        ':input[name="up[mail]"]' => array('value' => (!empty($band)) ? $band->mail : ''),
+      ),
+    ),
+  );
+
+  if (!empty($band)) {
+    $form['up']['delete'] = array(
+      '#type'        => 'checkbox',
+      '#title'       => t('Delete @band', array('@band' => $band->short_name)),
+      '#description' => t('To delete @band and all its associated information and imported data from Drupal, check this box.', array('@band' => $band->short_name)),
+    );
+    $form['up']['pass']['#states']['invisible'][':input[name="up[delete]"]'] = array('unchecked' => TRUE);
+    $form['up']['pass']['#states']['optional'][':input[name="up[delete]"]'] = array('unchecked' => TRUE);
+  }
+
+  $form['#validate'][] = 'up_user_profile_form_validate';
+  $form['#submit'][]   = 'up_user_profile_form_submit';
 }
 
 /**
- * Form builder that lists UP wristbands.
- *
- * @param object $account
- *   * Optional user account.
+ * Validate handler for the profile form.
  */
-function up_user_settings($account = NULL) {
-  $up_wristbands = '';
+function up_user_profile_form_validate(&$form, &$form_state) {
+  // If the email address was changed on an existing band OR an email address was added for a new band.
+  if (
+    (!empty($form['#band']) && $form['#band']->mail != $form_state['values']['up']['mail']) ||
+    (empty($form['#band'])  && !empty($form_state['values']['up']['mail']))) {
+    if (!valid_email_address($form_state['values']['up']['mail'])) {
+      form_set_error('up][mail', t('Please enter a valid e-mail address.'));
+    }
+    else if (empty($form_state['values']['up']['pass'])) {
+      form_set_error('up][pass', t('Please enter your Jawbone UP password.'));
+    }
+    else {
+      $json = up_api_authenticate($form_state['values']['up']['mail'], $form_state['values']['up']['pass']);
+      if (!empty($json) || empty($json->error)) {
+        // Store the API response for the submit handler if there was no error.
+        $form_state['values']['up']['#json'] = $json;
+      }
+    }
+  }
+
+  // Deleting? Use password to confirm.
+  if (!empty($form_state['values']['up']['delete'])) {
+    if (empty($form_state['values']['up']['mail'])) {
+      form_set_error('up][mail', t('Enter your Jawbone UP e-mail address to confirm band deletion.'));
+    }
+
+    if (empty($form_state['values']['up']['pass'])) {
+      form_set_error('up][pass', t('Please enter your Jawbone UP password to confirm band deletion.'));
+    }
+
+    if (!empty($form_state['values']['up']['mail']) && !empty($form_state['values']['up']['pass'])) {
+      $json = up_api_authenticate($form_state['values']['up']['mail'], $form_state['values']['up']['pass']);
+      if (empty($json) || !empty($json->error)) {
+        form_set_error('up][mail', t('Jawbone UP authentication failed. Please enter the correct e-mail and password to delete your band from Drupal.'));
+        form_set_error('up][pass');
+      }
+      else {
+        // Store the API response for the submit handler if there was no error.
+        $form_state['values']['up']['#json'] = $json;
+      }
+    }
+  }
+}
+
+/**
+ * Submit handler for the profile form.
+ */
+function up_user_profile_form_submit(&$form, &$form_state) {
+  // Early return if deleting the band.
+  if (!empty($form_state['values']['up']['delete'])) {
+    up_ticks_delete($form['#band']);
+    up_token_delete($form['#band']);
+    up_band_delete($form['#band']);
+
+    drupal_set_message(t('Deleted UP band %band', array('%band' => $form['#band']->short_name)), 'warning');
+    return;
+  }
+
+  $bid = (!empty($form['#band']->bid)) ? $form['#band']->bid : NULL;
+
+  if (
+    (!empty($form['#band']) && $form['#band']->mail != $form_state['values']['up']['mail']) ||
+    (empty($form['#band'])  && !empty($form_state['values']['up']['mail']))
+  ) {
+    if (!empty($form_state['values']['up']['#json'])) {
+      $band = up_band_create($form_state['values']['up']['#json'], $form['#user'], $bid);
+      up_band_save($band);
+
+      $token = up_token_create($form_state['values']['up']['#json'], $band->bid);
+      up_token_save($token, $bid);
+    }
+    else {
+      drupal_set_message(t('The UP API response went missing.'), 'error');
+    }
+  }
+}
+
+/**
+ * Implememts hook_user_view().
+ *
+ * @TODO: Maybe do this via a theme function instead?
+ */
+function up_user_view($account, $view_mode, $langcode) {
+  if (user_access('add up wristbands', $account)) {
+    if ($band = up_band_load_by_user($account)) {
+      $account->content['up']['info'] = array(
+        '#type'       => 'user_profile_item',
+        '#title'      => t('Jawbone UP'),
+        '#markup'     => t('The band %band is linked to this account. !image', array('%band' => $band->short_name, '!image' => up_band_image($band))),
+        '#attributes' => array('class'=> array('up')),
+      );
+    }
+  }
+}
+
+// @TODO
+//
+// Helper to fetch movement data.
+//
+// Helper to fetch sleep data.
+
+/**
+ * Helper to sanitise a response and handle any errors.
+ */
+function up_api_response($response) {
+  // dpm($response, __FUNCTION__);
+
+  // Acceptable responses are in the 2xx range, so make an error out of everything else.
+  if ($response->code < 200 || $response->code >= 300) {
+    watchdog('up', 'A Jawbone UP API error occurred: @error', array('@error' => $response->error), WATCHDOG_ERROR);
+    drupal_set_message(t('A Jawbone UP API error occurred: %error', array('%error' => $response->error)), 'error');
+    return NULL;
+  }
+
+  // Thus an OK response. Whee!
+  return json_decode($response->data);
+}
+
+/**
+ * 
+ */
+function up_api_authenticate($mail, $password) {
+  // The request payload.
+  $data = array(
+    'email' => $mail,
+    'pwd' => $password,
+    'service' => 'nudge',
+  );
+
+  $options = array(
+    'method' => 'POST',
+    'data' => drupal_http_build_query($data),
+    'timeout' => 10,
+  );
+  $response = drupal_http_request(UP_AUTH, $options);
+  return up_api_response($response);
+}
+
+/**
+ * Save an up band to the database.
+ *
+ * @param $data
+ *   An object containing a JSON response from the API.
+ * @param $account
+ *   A valid user account.
+ *
+ * @return
+ *   The status of the drupal_write_record() call.
+ */
+function up_band_save(&$band) {
+  return drupal_write_record('up_band', $band, (!empty($band->bid)) ? 'bid' : array());
+}
+
+/**
+ * Delete an up band from the database.
+ */
+function up_band_delete($band) {
+  db_delete('up_band')->condition('bid', $band->bid)->execute();
+}
+
+/**
+ * Retrieve band data from the database.
+ */
+function up_band_load($bid) {
+  return db_select('up_band', 'b')->fields('b')->condition('bid', $bid)->execute()->fetchObject();
+}
+
+/**
+ * Retrieve band info from the database.
+ */
+function up_band_load_by_xid($xid) {
+  return db_select('up_band', 'b')->fields('b')->condition('xid', $xid)->execute()->fetchObject();
+}
+
+/**
+ * Retrieve band info from the database.
+ */
+function up_band_load_by_user($account) {
+  return db_select('up_band', 'b')->fields('b')->condition('uid', $account->uid)->execute()->fetchObject();
+}
+
+/**
+ * Save a band token to the database.
+ */
+function up_token_save(&$token, $update = TRUE) {
+  return drupal_write_record('up_token', $token, (!empty($update)) ? 'bid' : array());
+}
+
+/**
+ * Delete an up band token from the database.
+ */
+function up_token_delete($band) {
+  db_delete('up_token')->condition('bid', $band->bid)->execute();
+}
+
+/**
+ * Retrieve a band authentication token from the database.
+ */
+function up_token_load($bid) {
+  return db_select('up_token', 't')->fields('t', array('token'))->condition('bid', $bid)->execute()->fetchField();
+}
+
+/**
+ * Delete up band ticks from the database.
+ */
+function up_ticks_delete($band) {
+  db_delete('up_ticks')->condition('bid', $band->bid)->execute();
+}
+
+/**
+ * Return the band profile image. Formatted for HTML output.
+ *
+ * @TODO: Theme function.
+ */
+function up_band_image($band) {
+  if (!empty($band->image_url)) {
+    return l(t('<img height="64" width="64" class="up" src="@host/@url">', array('@host' => UP_HOST, '@url' => $band->image_url)), UP_HOST, array('html' => TRUE));
+  }
+  return '';
+}
+
+/**
+ * Turn a JSON blob into a band object.
+ *
+ * @param $json.
+ *   A on object representing a JSON blob.
+ * @param $account
+ *   The Drupal user that owns this band.
+ * @param $bid
+ *   The optional unique band id for an existing band.
+ *
+ * @return
+ *   A band object.
+ */
+function up_band_create($json, $account, $bid = NULL) {
+  $band = new stdClass();
+
+  $band->bid        = $bid;
+  $band->xid        = $json->user->xid;
+  $band->uid        = $account->uid;
+  $band->name       = $json->user->name;
+  $band->mail       = $json->user->email;
+  $band->first_name = $json->user->first_name;
+  $band->last_name  = $json->user->last_name;
+  $band->short_name = $json->user->band_name;
+  $band->image_url  = $json->user->image;
+
+  return $band;
+}
+
+/**
+ * Turn a JSON blob into a token object.
+ */
+function up_token_create($json, $bid) {
+  $token = new stdClass();
+
+  $token->bid   = $bid;
+  $token->token = $json->token;
+
+  return $token;
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function up_views_api() {
+  return array(
+    'api'  => 3,
+    'path' => drupal_get_path('moduke', 'up') . '/includes/views',
+  );
 }

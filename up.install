@@ -7,17 +7,21 @@
  * Implements hook_schema().
  */
 function up_schema() {
-  $schema['up'] = array(
-    'description' => "Stores individual UP account information.",
+  $schema['up_band'] = array(
+    'description' => "Stores individual UP band information.",
     'fields' => array(
+      'bid' => array(
+        'description' => "The unique {up_band} internal band id.",
+        'type' => 'serial',
+      ),
       'xid' => array(
-        'description' => "Unique identifier of the {up} account.",
+        'description' => "Unique API identifier of the {up} band.",
         'type' => 'varchar',
         'not null' => TRUE,
         'length' => 64,
       ),
       'uid' => array(
-        'description' => "The uid of the user who added this {up} account.",
+        'description' => "The uid of the user who added this {up} band.",
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
@@ -25,6 +29,11 @@ function up_schema() {
       ),
       'name' => array(
         'description' => "The full user name as provided by the UP API.",
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+      'mail' => array(
+        'description' => "The user email address as provided by the UP API.",
         'type' => 'varchar',
         'length' => 255,
       ),
@@ -49,9 +58,12 @@ function up_schema() {
         'length' => 255,
       ),
     ),
-    'primary key' => array('xid'),
+    'primary key' => array('bid'),
     'indexes' => array(
       'uid' => array('uid'),
+    ),
+    'unique' => array(
+      'xid' => array('xid'),
     ),
     'foreign keys' => array(
       'uid' => array(
@@ -61,18 +73,44 @@ function up_schema() {
     ),
   );
 
+  $schema['up_token'] = array(
+    'description' => "Stores authentication tokens for UP bands.",
+    'fields' => array(
+      'bid' => array(
+        'description' => "The {up_band}.bid for this token.",
+        'type' => 'varchar',
+        'not null' => TRUE,
+        'length' => 64,
+      ),
+      'token' => array(
+        'description' => "The authentication token for this {up_band}.bid.",
+        'type' => 'varchar',
+        'not null' => TRUE,
+        'length' => 64,
+      ),
+    ),
+    'primary key' => array('bid'),
+    'foreign keys' => array(
+      'bid' => array(
+        'table' => 'up_band',
+        'columns' => array('bid' => 'bid'),
+      ),
+    ),
+  );
+
   $schema['up_ticks'] = array(
     'description' => "Stores individual UP activities.",
     'fields' => array(
       'tid' => array(
-        'description' => "The unique {up_ticks} activity id."
+        'description' => "The unique {up_ticks} activity id.",
         'type' => 'serial',
       ),
-      'xid' => array(
-        'description' => "Unique identifier of the {up} account for this {up_tick}.",
-        'type' => 'varchar',
+      'bid' => array(
+        'description' => "The {up}.bid band for this {up_tick}.",
+        'type' => 'int',
+        'unsigned' => TRUE,
         'not null' => TRUE,
-        'length' => 64,
+        'default' => 0,
       ),
       'distance' => array(
         'description' => "The distance covered in this {up_tick}.",
@@ -124,13 +162,13 @@ function up_schema() {
     ),
     'primary key' => array('tid'),
     'indexes' => array(
-      'xid' => array('xid')
-      'time' => array('time')
+      'bid' => array('bid'),
+      'time' => array('time'),
     ),
     'foreign keys' => array(
-      'xid' => array(
-        'table' => 'up',
-        'columns' => array('xid' => 'xid'),
+      'bid' => array(
+        'table' => 'up_band',
+        'columns' => array('bid' => 'bid'),
       ),
     ),
   );
