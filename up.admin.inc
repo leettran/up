@@ -17,7 +17,7 @@ function up_admin_form($form, &$form_state) {
   $form['auth'] = array(
     '#type' => 'fieldset',
     '#title' => t('Authentication Settings'),
-    '#description' => t('To enable access for UP, you must <a href="@url">register your application</a> with Jawbone and add the provided keys here.', array('@url' => 'https://jawbone.com/up/developer/account/create')),
+    '#description' => t('To enable access for UP, you must <a href="@url">register your application</a> with Jawbone and add the provided keys here.', array('@url' => 'https://jawbone.com/up/developer/account')),
   );
   $form['auth']['callback_url'] = array(
     '#type' => 'item',
