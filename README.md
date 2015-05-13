@@ -33,6 +33,11 @@
   and save the settings.
 * Edit your user profile and add your UP band
 
+== Usage ==
+
+Once you install and enable the views module, you'll be able to create views of
+your UP bands and activity summaries.
+
 === NOTE ===
 
 Do not be tempted to publish your application! If you publish it you won't be
