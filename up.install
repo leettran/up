@@ -4,6 +4,14 @@
  */
 
 /**
+ * Implements hook_uninstall().
+ */
+function up_uninstall() {
+  variable_del('up_client_id');
+  variable_del('up_app_secret');
+}
+
+/**
  * Implements hook_schema().
  */
 function up_schema() {
@@ -27,16 +35,6 @@ function up_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
-      'name' => array(
-        'description' => "The full user name as provided by the UP API.",
-        'type' => 'varchar',
-        'length' => 255,
-      ),
-      'mail' => array(
-        'description' => "The user email address as provided by the UP API.",
-        'type' => 'varchar',
-        'length' => 255,
-      ),
       'first_name' => array(
         'description' => "The user's first name as provided by the UP API.",
         'type' => 'varchar',
@@ -44,11 +42,6 @@ function up_schema() {
       ),
       'last_name' => array(
         'description' => "The user's last name as provided by the UP API.",
-        'type' => 'varchar',
-        'length' => 255,
-      ),
-      'short_name' => array(
-        'description' => "The short user name as provided by the UP API.",
         'type' => 'varchar',
         'length' => 255,
       ),
@@ -74,26 +67,44 @@ function up_schema() {
   );
 
   $schema['up_token'] = array(
-    'description' => "Stores authentication tokens for UP bands.",
+    'description' => 'Stores authentication tokens for UP bands.',
     'fields' => array(
-      'bid' => array(
-        'description' => "The {up_band}.bid for this token.",
-        'type' => 'varchar',
+      'tid' => array(
+        'description' => 'The unique tid for this token.',
+        'type' => 'serial',
+      ),
+      'uid' => array(
+        'description' => 'The {users}.uid for this token.',
+        'type' => 'int',
         'not null' => TRUE,
-        'length' => 64,
       ),
       'token' => array(
-        'description' => "The authentication token for this {up_band}.bid.",
+        'description' => 'The token for oauth-based access.',
         'type' => 'varchar',
         'not null' => TRUE,
-        'length' => 64,
+        'length' => 128,
+      ),
+      'refresh_token' => array(
+        'description' => 'The refresh_token that can be used to replace an expiring token.',
+        'type' => 'varchar',
+        'length' => 128,
+      ),
+      'expires' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Timestamp for current token expiry.',
       ),
     ),
-    'primary key' => array('bid'),
+    'primary key' => array('tid'),
+    'indexes' => array(
+      'uid'     => array('uid'),
+      'expires' => array('expires'),
+    ),
     'foreign keys' => array(
-      'bid' => array(
-        'table' => 'up_band',
-        'columns' => array('bid' => 'bid'),
+      'uid' => array(
+        'table' => 'users',
+        'columns' => array('uid' => 'uid'),
       ),
     ),
   );
@@ -182,18 +193,21 @@ function up_requirements($phase = 'runtime') {
   $requirements = array();
 
   $t = get_t();
-  $override = variable_get('chr_override_drupal_http_request', FALSE);
 
   $requirements['up'] = array(
-    'title' => $t('Jawbone UP API'),
-    'value' => (empty($override)) ? $t('Your Drupal HTTP Request function is not overridden. Please <a href="!link">configure CHR</a> to do so.', array('!link' => url('admin/config/services/chr'))) : $t('Drupal is configured to use cURL for HTTP Requests.'),
-    'severity' => REQUIREMENT_OK,
+    'title' => $t('Jawbone UP'),
   );
 
-  if (empty($override)) {
+  try {
+    @include_once 'vendor/autoload.php';
+    $up = @new \Jawbone\Up;
+
+    $requirements['up']['value'] = $t('The Jawbone UP API library @version is installed.', array('@version' => \Jawbone\Up::Version));
+    $requirements['up']['severity'] = REQUIREMENT_OK;
+  } catch (Exception $e) {
+    $requirements['up']['value'] = $t('The Jawbone UP API library is not installed. Please run <em>composer install</em> in the <em>up</em> module directory.');
     $requirements['up']['severity'] = REQUIREMENT_ERROR;
   }
 
   return $requirements;
 }
-

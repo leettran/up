@@ -1,0 +1,5 @@
+{
+  "require": {
+    "n3xtchen/jawbone": "0.1.0.x-dev"
+  }
+}

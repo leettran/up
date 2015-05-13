@@ -1,93 +1,41 @@
 <?php
 /**
  * @file
+ * Debug UP API calls.
  */
 
-module_load_include('inc', 'up', 'includes/up.api');
-
 function up_debug_menu() {
-  $items['admin/reports/up/today'] = array(
-    'title' => 'UP: Debug Today',
-    'page callback' => 'up_debug_today',
-    'access arguments' => array('access developer information'),
-    'type' => MENU_NORMAL_ITEM
-  );
-  $items['admin/reports/up/summary'] = array(
-    'title' => 'UP: Debug Summary',
-    'page callback' => 'up_debug_summary',
-    'access arguments' => array('access developer information'),
-    'type' => MENU_NORMAL_ITEM
-  );
-  $items['admin/reports/up/band'] = array(
-    'title' => 'UP: Debug Band',
-    'page callback' => 'up_debug_band',
-    'access arguments' => array('access developer information'),
-    'type' => MENU_NORMAL_ITEM
-  );
-  $items['admin/reports/up/workouts'] = array(
-    'title' => 'UP: Debug Workouts',
-    'page callback' => 'up_debug_workouts',
-    'access arguments' => array('access developer information'),
-    'type' => MENU_NORMAL_ITEM
-  );
-  $items['admin/reports/up/sleeps'] = array(
-    'title' => 'UP: Debug Sleeps',
-    'page callback' => 'up_debug_sleeps',
-    'access arguments' => array('access developer information'),
-    'type' => MENU_NORMAL_ITEM
-  );
+  $endpoints = array('bandevents', 'body_events', 'mood', 'moves', 'settings', 'sleeps', 'workouts');
+
+  foreach ($endpoints as $endpoint) {
+    $items['admin/config/services/up/debug/' .$endpoint] = array(
+      'title' => 'UP: ' . $endpoint,
+      'page callback' => 'up_debug_callback',
+      'page arguments' => array(5),
+      'access arguments' => array('access developer information'),
+      'type' => MENU_LOCAL_TASK,
+    );
+  }
+
   return $items;
 }
 
-function up_debug_summary() {
-  $band = up_band_load_by_user($GLOBALS['user']);
-  $summary = up_api_summary($band);
+function up_debug_callback($item) {
 
-  dpm($summary, 'summary');
+  drupal_set_title(t('UP Debug: @item', array('@item' => $item)));
 
-  $rows = array();
-  foreach ($summary->data->feed as $item) {
-    $rows[] = array(
-      'title' => t('@type @duration from @start until @end', array('@type' => $item->type, '@duration' => $item->title, '@start' => format_date($item->time_created), '@end' => format_date($item->time_updated))),
-      'image' => t('<a href="@host/@image" target="_blank"><img height="200" src="@host/@image" /></a>', array('@host' => UP_API_HOST, '@image' => $item->image)));
+  $token = up_token_load_by_user($GLOBALS['user']);
+
+  $config = up_api_config($token);
+  $up = new \Jawbone\Up($config);
+
+  try {
+    $json = $up->get($item);
+  } catch (Exception $e) {
+    drupal_set_message(t('@error', array('@error' => (string)$e)), 'error');
   }
-  return theme('table', array('header' => array(), 'rows' => $rows));
-}
 
-function up_debug_today() {
-  $band = up_band_load_by_user($GLOBALS['user']);
-  $today = up_api_today($band);
+  dpm($json, $item);
 
-  dpm($today, 'today');
-  return t('Debug');
-}
-
-// Seems to fetch the past 24 hours.
-function up_debug_band() {
-  $band = up_band_load_by_user($GLOBALS['user']);
-  $data = up_api_band($band);
-
-  dpm($data, 'data');
-  $output = '';
-
-  foreach ($data->data->ticks as $tick) {
-    $output .= '<li>' . format_date($tick->value->time, 'ago');
-  }
-  return t('<ol>' . $output . '</ol>');
-}
-
-function up_debug_workouts() {
-  $band = up_band_load_by_user($GLOBALS['user']);
-  $data = up_api_workouts($band);
-
-  dpm($data, 'workouts');
-  return t('Debug');
-}
-
-function up_debug_sleeps() {
-  $band = up_band_load_by_user($GLOBALS['user']);
-  $data = up_api_sleeps($band);
-
-  dpm($data, 'sleeps');
-  return t('Debug');
+  return '';
 }
