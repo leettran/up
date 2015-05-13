@@ -273,13 +273,17 @@ function up_requirements($phase = 'runtime') {
   );
 
   try {
-    @include_once 'vendor/autoload.php';
+    if (!file_exists(drupal_get_path('module', 'up') . '/vendor/autoload.php')) {
+      throw new Exception();
+    }
+
+    module_load_include('php', 'up', 'vendor/autoload');
     $up = @new \Jawbone\Up;
 
     $requirements['up']['value'] = $t('The Jawbone UP API library @version is installed.', array('@version' => \Jawbone\Up::Version));
     $requirements['up']['severity'] = REQUIREMENT_OK;
   } catch (Exception $e) {
-    $requirements['up']['value'] = $t('The Jawbone UP API library is not installed. Please run <em>composer install</em> in the <em>up</em> module directory.');
+    $requirements['up']['description'] = $t('The Jawbone UP API library is not installed. Please run <em>composer install</em> in the <em>up</em> module directory.');
     $requirements['up']['severity'] = REQUIREMENT_ERROR;
   }
 
