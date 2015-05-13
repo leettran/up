@@ -5,7 +5,7 @@
  */
 
 function up_debug_menu() {
-  $endpoints = array('bandevents', 'body_events', 'mood', 'moves', 'settings', 'sleeps', 'workouts');
+  $endpoints = array('bandevents', 'body_events', 'heartrates', 'generic_events', 'goals', 'meals', 'mood', 'moves', 'settings', 'sleeps', 'timezone', 'trends', 'user', 'workouts');
 
   foreach ($endpoints as $endpoint) {
     $items['admin/config/services/up/debug/' .$endpoint] = array(
@@ -28,6 +28,9 @@ function up_debug_callback($item) {
 
   $config = up_api_config($token);
   $up = new \Jawbone\Up($config);
+
+  // Well...
+  if ($item == 'user') $item = '';
 
   try {
     $json = $up->get($item);
