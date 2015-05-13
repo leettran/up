@@ -35,7 +35,7 @@ class JawboneAuth {
     $params = array(
       'response_type' => 'code',
       'client_id'     => $this->client_id,
-      'scope'         => 'basic_read extended_read mood_read move_read sleep_read',
+      'scope'         => 'basic_read extended_read move_read sleep_read',
       'redirect_uri'  => url('up/auth', array('absolute' => TRUE))
     );
     return url(UP_AUTH_URI, array('query' => $params, 'absolute' => TRUE));
@@ -68,4 +68,40 @@ class JawboneAuth {
     // Thus an OK response. Whee!
     return json_decode($response->data);
   }
+}
+
+/**
+ * Return a list of summary types and sub-types that we can deal with.
+ */
+function up_summary_types($type = NULL, $sub_type = NULL) {
+  $types = array(
+    'move' => array(
+      'endpoint' => 'moves',
+      'title' => t('Move'),
+      'sub_types' => array(),
+    ),
+    'sleep' => array(
+      'endpoint' => 'sleeps',
+      'title' => t('Sleep'),
+      'sub_types' => array(
+        0 => t('Normal'),
+        1 => t('Power nap'),
+        2 => t('Nap'),
+      ),
+    ),
+  );
+
+  if (empty($type)) {
+    return $types;
+  }
+
+  if (empty($types[$type])) {
+    return NULL;
+  }
+
+  if ($sub_type == NULL) {
+    return $types[$type];
+  }
+
+  return $types[$type]['sub_types'][$sub_type];
 }

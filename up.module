@@ -207,19 +207,37 @@ function up_api_config($token) {
 
 /**
  * Implements hook_cron().
+ *
+ * @TODO: Use a batch job.
  */
 function up_cron() {
-  // Fetch summaries.
-  // Update ticks.
+  // Load all bands.
+  $bands = up_band_load_all();
+  $types = up_summary_types();
+
+  foreach ($bands as $band) {
+    foreach ($types as $type) {
+      up_fetch_summaries($band, $type['endpoint']);
+    }
+  }
 }
 
-// @TODO
-//
-// Helper to fetch movement data.
-//
-// Helper to fetch sleep data.
-//
-// Helper to fetch ticks.
+/**
+ * Helper to fetch summaries and store them in the database.
+ */
+function up_fetch_summaries($band, $type) {
+  $account = user_load($band->uid);
+  $token = up_token_load_by_user($account);
+  $config = up_api_config($token);
+
+  $up = new \Jawbone\Up($config);
+  $data = $up->get($type);
+
+  foreach ($data['data']['items'] as $item) {
+    $summary = up_summary_create($item, $type, $band);
+    up_summary_save($summary, FALSE);
+  }
+}
 
 /**
  * Implements hook_views_api().
@@ -231,3 +249,14 @@ function up_views_api() {
   );
 }
 
+/**
+ * Helper to make the summary types consistent. Because the API sure doesn't.
+ */
+function _up_summary_type($type) {
+  switch ($type) {
+    case 'sleeps':
+      return 'sleep';
+  }
+
+  return $type;
+}

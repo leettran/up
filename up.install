@@ -109,6 +109,80 @@ function up_schema() {
     ),
   );
 
+  $schema['up_summary'] = array(
+    'description' => "Stores UP summaries.",
+    'fields' => array(
+      'xid' => array(
+        'description' => 'The unique xid for move summary.',
+        'type' => 'varchar',
+        'length' => 64,
+      ),
+      'bid' => array(
+        'description' => 'The {up}.bid band for this summary.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'updated' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Time this summary was last updated',
+      ),
+      'created' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Time this summary was created.',
+      ),
+      'completed' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Time this summary was completed.',
+      ),
+      'type' => array(
+        'description' => 'The type of this summary.',
+        'type' => 'varchar',
+        'length' => 16,
+      ),
+      'sub_type' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The numeric sub-type of this summary.',
+      ),
+      'title' => array(
+        'description' => "The title for this summary.",
+        'type' => 'varchar',
+        'length' => 64,
+      ),
+      'image' => array(
+        'description' => 'The image for this summary.',
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+      'snapshot' => array(
+        'description' => 'The snapshot image for this summary.',
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+    ),
+    'primary key' => array('xid'),
+    'indexes' => array(
+      'bid'       => array('bid'),
+      'time'      => array('updated', 'created', 'completed'),
+      'type'      => array('type', 'sub_type'),
+    ),
+    'foreign keys' => array(
+      'bid' => array(
+        'table' => 'up_band',
+        'columns' => array('bid' => 'bid'),
+      ),
+    ),
+  );
+
   $schema['up_ticks'] = array(
     'description' => "Stores individual UP activities.",
     'fields' => array(
@@ -210,4 +284,11 @@ function up_requirements($phase = 'runtime') {
   }
 
   return $requirements;
+}
+
+/**
+ * Add the up_summary table.
+ */
+function up_update_7000() {
+  db_create_table('up_summary', drupal_get_schema_unprocessed('up', 'up_summary'));
 }

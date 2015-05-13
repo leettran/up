@@ -80,6 +80,13 @@ function up_band_load_by_user($account) {
 }
 
 /**
+ * Retrieve band info from the database.
+ */
+function up_band_load_all() {
+  return db_select('up_band', 'b')->fields('b')->execute()->fetchAll();
+}
+
+/**
  * Turn a JSON blob into a token object.
  */
 function up_token_create($json, $account) {
@@ -120,4 +127,37 @@ function up_token_load($tid) {
  */
 function up_token_load_by_user($account) {
   return db_select('up_token', 't')->fields('t')->condition('uid', $account->uid)->execute()->fetchObject();
+}
+
+/**
+ * Turn an API data blob into a summary object.
+ *
+ * @param $item
+ * @param $type
+ * @param $band
+ *
+ * @return
+ */
+function up_summary_create($item, $type, $band) {
+  $summary = new stdClass();
+
+  $summary->xid       = $item['xid'];
+  $summary->bid       = $band->bid;
+  $summary->updated   = $item['time_updated'];
+  $summary->created   = $item['time_created'];
+  $summary->completed = $item['time_completed'];
+  $summary->type      = (!empty($item['type'])) ? $item['type'] : _up_summary_type($type);
+  $summary->sub_type  = (!empty($item['sub_type'])) ? $item['sub_type'] : 0;
+  $summary->title     = $item['title'];
+  $summary->snapshot  = (!empty($item['snapshot_image'])) ? $item['snapshot_image'] : '';
+  $summary->image     = (!empty($item['image'])) ? $item['image'] : '';
+
+  return $summary;
+}
+
+/**
+ * Save a summary to the database.
+ */
+function up_summary_save(&$summary, $update = TRUE) {
+  return drupal_write_record('up_summary', $summary, (!empty($update)) ? 'xid' : array());
 }
