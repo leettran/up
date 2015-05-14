@@ -14,7 +14,7 @@
   installation.
 * Install composer, if you don't yet have it installed.
   See: https://getcomposer.org/download/
-* Run `composer install' to download the Jawbone API library.
+* Run `composer install --no-dev' to download the Jawbone API library.
 * Enable the UP module via admin/modules on your Drupal site.
 * Go to admin/config/services/up on your Drupal site.
 

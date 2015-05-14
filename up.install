@@ -284,7 +284,8 @@ function up_requirements($phase = 'runtime') {
     $requirements['up']['value'] = $t('The Jawbone UP API library @version is installed.', array('@version' => \Jawbone\Up::Version));
     $requirements['up']['severity'] = REQUIREMENT_OK;
   } catch (Exception $e) {
-    $requirements['up']['description'] = $t('The Jawbone UP API library is not installed. Please run <em>composer install</em> in the <em>up</em> module directory.');
+    $requirements['up']['value'] = $t('Not installed');
+    $requirements['up']['description'] = $t('The Jawbone UP API library is not installed. Please run <em>composer install --no-dev</em> in the <em>up</em> module directory.');
     $requirements['up']['severity'] = REQUIREMENT_ERROR;
   }
 
