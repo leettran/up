@@ -169,7 +169,6 @@ function up_user_view($account, $view_mode, $langcode) {
   }
 }
 
-
 /**
  * Return the band profile image. Formatted for HTML output.
  *
@@ -213,7 +212,9 @@ function up_api_config($token) {
 function up_cron() {
   // Load all bands.
   $bands = up_band_load_all();
-  $types = up_summary_types();
+
+  // Load all enabled types.
+  $types = up_summary_types(NULL, NULL, TRUE);
 
   foreach ($bands as $band) {
     foreach ($types as $type) {
@@ -225,16 +226,20 @@ function up_cron() {
 /**
  * Helper to fetch summaries and store them in the database.
  */
-function up_fetch_summaries($band, $type) {
+function up_fetch_summaries($band, $endpoint) {
+
   $account = user_load($band->uid);
   $token = up_token_load_by_user($account);
   $config = up_api_config($token);
 
   $up = new \Jawbone\Up($config);
-  $data = $up->get($type);
+  $data = $up->get($endpoint);
+
+  if (empty($data['data']['items']))
+    return;
 
   foreach ($data['data']['items'] as $item) {
-    $summary = up_summary_create($item, $type, $band);
+    $summary = up_summary_create($item, $endpoint, $band);
     up_summary_save($summary, FALSE);
   }
 }

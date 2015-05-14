@@ -9,6 +9,7 @@
 function up_uninstall() {
   variable_del('up_client_id');
   variable_del('up_app_secret');
+  variable_del('up_types');
 }
 
 /**

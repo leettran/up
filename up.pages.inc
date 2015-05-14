@@ -66,7 +66,7 @@ function up_auth_callback_form($form, &$form_state) {
  */
 function up_auth_callback_form_validate($form, &$form_state) {
   if (empty($form_state['values']['code'])) {
-    form_set_error('code', 'Invalid Jawbone UP Auth request');
+    form_set_error('code', 'Invalid Jawbone UP authentication code');
   }
 }
 
@@ -88,8 +88,8 @@ function up_auth_callback_form_submit($form, &$form_state) {
     // Hurray, we have a response!
     $json = $auth->decode_response($response);
   } catch (Exception $e) {
-    drupal_set_message(t('Invalid Jawbone UP Auth request', 'error'));
-    return;
+    drupal_set_message(t('Jawbone UP authentication request failed'), 'error');
+    drupal_goto('user');;
   }
 
   global $user;
