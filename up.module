@@ -148,7 +148,7 @@ function up_form_user_profile_form_alter(&$form, &$form_state) {
     '#tree'        => TRUE,
   );
 
-  if (user_access('add up bands')) {
+  if (user_access('add up wristbands')) {
     $form['up']['band'] = drupal_get_form('up_band_form', $band);
   }
 }
