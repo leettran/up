@@ -306,7 +306,7 @@ function up_cache_image($image) {
   }
 
   $uri = drupal_parse_url($image);
-  $filename = basename($uri['path']);
+  $filename = md5($uri['path']);
 
   // Create a local cache filename.
   $cache = UP_CACHE . '/' . $filename;
