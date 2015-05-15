@@ -66,15 +66,15 @@ function up_band_form($form, $form_state, $band) {
   if (empty($band)) {
     $form['submit'] = array(
       '#type'   => 'submit',
-      '#value'  => t('Add your UP band'),
+      '#value'  => t('Add your UP'),
       '#suffix' => '</br />' . t('You will be asked to login to your Jawbone account and grant access permissions to @site.', array('@site' => variable_get('site_name', ''))),
     );
   }
   else {
     $form['delete'] = array(
       '#type'   => 'submit',
-      '#value'  => t('Remove band'),
-      '#suffix' => '<br />' . t('When you remove this band, all imported data and status for this band will be removed as well.'),
+      '#value'  => t('Remove UP'),
+      '#suffix' => '<br />' . t('When you remove this UP, all associated data and status will be removed as well.'),
     );
   }
   return $form;
@@ -144,7 +144,7 @@ function up_form_user_profile_form_alter(&$form, &$form_state) {
   $form['up'] = array(
     '#type'        => 'fieldset',
     '#title'       => t('Jawbone UP'),
-    '#description' => (!empty($band)) ? t('Your account is currently linked to the band %band.', array('%band' => $band->first_name . ' ' . $band->last_name)) : '',
+    '#description' => (!empty($band)) ? t('Your account is currently linked to %band\'s UP.', array('%band' => $band->first_name . ' ' . $band->last_name)) : '',
     '#tree'        => TRUE,
   );
 
@@ -164,7 +164,7 @@ function up_user_view($account, $view_mode, $langcode) {
       $account->content['up']['info'] = array(
         '#type'       => 'user_profile_item',
         '#title'      => t('Jawbone UP'),
-        '#markup'     => t('%band\'s band is linked to this account. !image', array('%band' => $band->first_name . ' ' . $band->last_name, '!image' => up_band_image($band))),
+        '#markup'     => t('%band\'s UP is linked to this account.', array('%band' => $band->first_name . ' ' . $band->last_name)),
         '#attributes' => array('class'=> array('up')),
       );
     }
