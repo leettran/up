@@ -138,6 +138,9 @@ function up_views_data() {
         'handler' => 'views_handler_field',
         'click sortable' => TRUE,
       ),
+      'argument' => array(
+        'handler' => 'views_handler_argument_string',
+      ),
       'filter' => array(
         'handler' => 'views_handler_filter_string',
       ),
