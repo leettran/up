@@ -105,6 +105,7 @@ function up_band_form_submit($form, &$form_state) {
     $account = user_load($band->uid);
     $token = up_token_load_by_user($account);
 
+    up_summary_delete_by_band($band);
     up_band_delete($band);
     up_token_delete($token);
 

@@ -21,6 +21,7 @@ function up_band_create($token, $bid = NULL) {
   try {
     $json = $up->get(NULL);
   } catch (Exception $e) {
+    watchdog('up', 'Jawbone UP API error: @error', array('@error' => (string)$e), WATCHDOG_ERROR);
     drupal_set_message(t('@error', array('@error' => (string)$e)), 'error');
   }
 
@@ -159,5 +160,47 @@ function up_summary_create($item, $type, $band) {
  * Save a summary to the database.
  */
 function up_summary_save(&$summary, $update = TRUE) {
-  return drupal_write_record('up_summary', $summary, (!empty($update)) ? 'xid' : array());
+  $ret = NULL;
+
+  try {
+    $ret = drupal_write_record('up_summary', $summary, (!empty($update)) ? 'xid' : array());
+  } catch (Exception $e) {
+    if ($e->getCode() == 23000) {
+      // Duplicate entry, rerun as UPDATE query.
+      $ret = drupal_write_record('up_summary', $summary, 'xid');
+    }
+  }
+}
+
+/**
+ * Delete a summary from the database.
+ *
+ * @param Var $summary
+ *   A summary object or a summary xid string.
+ */
+function up_summary_delete($summary) {
+  $xid = (is_object($summary)) ? $summary->xid : $summary;
+  db_delete('up_summary')->condition('xid', $xid)->execute();
+}
+
+/**
+ * Delete all summaries for a specific band from the database.
+ *
+ * @param Var $band
+ *   A band object or a band bid id.
+ */
+function up_summary_delete_by_band($band) {
+  $bid = (is_object($band)) ? $band->bid : $band;
+  db_delete('up_summary')->condition('bid', $bid)->execute();
+}
+
+/**
+ * Delete all summaries for a specific user from the database.
+ *
+ * @param Object $account
+ *   A user account object.
+ */
+function up_summary_delete_by_user($account) {
+  $band = up_band_load_by_user($account);
+  db_delete('up_summary')->condition('bid', $band->bid)->execute();
 }
