@@ -88,6 +88,7 @@ function up_auth_callback_form_submit($form, &$form_state) {
     // Hurray, we have a response!
     $json = $auth->decode_response($response);
   } catch (Exception $e) {
+    watchdog('up', 'Jawbone UP API: @error', array('@error' => (string)$e), WATCHDOG_ERROR);
     drupal_set_message(t('Jawbone UP authentication request failed'), 'error');
     drupal_goto('user');;
   }

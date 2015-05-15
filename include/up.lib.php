@@ -60,7 +60,7 @@ class JawboneAuth {
   public function decode_response($response) {
     // Acceptable responses are in the 2xx range, so make an error out of everything else.
     if ($response->code < 200 || $response->code >= 300) {
-      watchdog('up', 'A Jawbone UP API error occurred: @error', array('@error' => $response->error), WATCHDOG_ERROR);
+      watchdog('up', 'Jawbone UP API error: @error', array('@error' => $response->error), WATCHDOG_ERROR);
       drupal_set_message(t('A Jawbone UP API error occurred: %error', array('%error' => $response->error)), 'error');
       throw new JawboneAuthException($response->error);
     }
@@ -167,4 +167,16 @@ function up_summary_types($type = NULL, $sub_type = NULL, $filter = FALSE) {
 
   // Return the name of the sub-type.
   return (!empty($types[$type]['sub_types'][$sub_type])) ? $types[$type]['sub_types'][$sub_type] : NULL;
+}
+
+/**
+ * Helper to make the summary types consistent. Because the API sure doesn't.
+ */
+function _up_summary_type($type) {
+  switch ($type) {
+    case 'sleeps':
+      return 'sleep';
+  }
+
+  return $type;
 }

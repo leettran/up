@@ -118,6 +118,7 @@ function up_band_form_submit($form, &$form_state) {
   try {
     $auth = new JawboneAuth($key, $secret);
   } catch (JawboneAuthException $e) {
+    watchdog('up', 'Jawbone UP API: @error', array('@error' => (string)$e), WATCHDOG_ERROR);
     drupal_set_message(t('Could not obtain a valid code from the Jawbone UP API. Please review the configuration.'), 'error');
     return;
   }
@@ -232,8 +233,12 @@ function up_fetch_summaries($band, $endpoint) {
   $token = up_token_load_by_user($account);
   $config = up_api_config($token);
 
-  $up = new \Jawbone\Up($config);
-  $data = $up->get($endpoint);
+  try {
+    $up = new \Jawbone\Up($config);
+    $data = $up->get($endpoint);
+  } catch (Exception $e) {
+    watchdog('up', 'Jawbone UP API: @error', array('@error' => (string)$e), WATCHDOG_ERROR);
+  }
 
   if (empty($data['data']['items']))
     return;
@@ -252,16 +257,4 @@ function up_views_api() {
     'api'  => 3,
     'path' => drupal_get_path('module', 'up') . '/include/views',
   );
-}
-
-/**
- * Helper to make the summary types consistent. Because the API sure doesn't.
- */
-function _up_summary_type($type) {
-  switch ($type) {
-    case 'sleeps':
-      return 'sleep';
-  }
-
-  return $type;
 }
