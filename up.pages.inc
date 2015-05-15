@@ -103,6 +103,11 @@ function up_auth_callback_form_submit($form, &$form_state) {
   $band = up_band_create($token);
   up_band_save($band);
 
+  // Import data for this band now.
+  foreach (up_summary_types(NULL, NULL, TRUE) as $type) {
+    up_fetch_summaries($band, $type['endpoint']);
+  }
+
   // Redirect to the profile page. We can display band info there. Huzzah!
   drupal_goto('user');
 }
