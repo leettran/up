@@ -170,6 +170,7 @@ function up_summary_save(&$summary, $update = TRUE) {
       $ret = drupal_write_record('up_summary', $summary, 'xid');
     }
   }
+  return $ret;
 }
 
 /**
