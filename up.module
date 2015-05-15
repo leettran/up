@@ -172,15 +172,32 @@ function up_user_view($account, $view_mode, $langcode) {
 }
 
 /**
+ * Return the full path to an UP-hosted image.
+ */
+function up_image($path) {
+  $delim = (strpos($path, '/') === 0) ? '' : '/';
+  return UP_API_HOST . $delim . $path;
+}
+
+/**
  * Return the band profile image. Formatted for HTML output.
  *
  * @TODO: Theme function.
  */
 function up_band_image($band) {
-  if (!empty($band->image_url)) {
-    return l(t('<img height="64" width="64" class="up" src="@host/@url">', array('@host' => UP_API_HOST, '@url' => $band->image_url)), UP_API_HOST, array('html' => TRUE));
+  // Early return;
+  if (empty($band->image_url)) {
+    return NULL;
   }
-  return '';
+
+  $variables = array(
+    'path' => up_image($band->image_url),
+    'height' => '64',
+    'width' => '64',
+    'alt' => t('UP profile for @first @last', array('@first' => $band->first_name, '@last' => $band->last_name)),
+    'attributes' => array('class' => array('up')),
+  );
+  return theme('image', $variables);
 }
 
 /**
@@ -226,6 +243,26 @@ function up_cron() {
 }
 
 /**
+ * Implements hook_theme().
+ */
+function up_theme() {
+  return array(
+    'up_image_style' => array(
+      'variables' => array(
+        'style_name' => NULL,
+        'path' => NULL,
+        'width' => NULL,
+        'height' => NULL,
+        'alt' => '',
+        'title' => NULL,
+        'attributes' => array(),
+      ),
+      'file' => 'up.theme.inc'
+    ),
+  );
+}
+
+/**
  * Helper to fetch summaries and store them in the database.
  */
 function up_fetch_summaries($band, $endpoint) {
@@ -258,4 +295,46 @@ function up_views_api() {
     'api'  => 3,
     'path' => drupal_get_path('module', 'up') . '/include/views',
   );
+}
+
+/**
+ * Fetch a remote image from Jawbone and cache it locally.
+ */
+function up_cache_image($image) {
+  if (!is_dir(drupal_realpath(UP_CACHE))) {
+    drupal_mkdir(UP_CACHE);
+  }
+
+  $uri = drupal_parse_url($image);
+  $filename = basename($uri['path']);
+
+  // Create a local cache filename.
+  $cache = UP_CACHE . '/' . $filename;
+
+  if (file_exists(drupal_realpath($cache))) {
+    $interval = time() - filemtime(drupal_realpath($cache));
+    $refresh = ($interval > variable_get('page_cache_maximum_age', 0));
+  }
+  else {
+    $refresh = TRUE;
+  }
+
+  // drupal_http_request doesn't cope with schema-less redirect URLs.
+  $result = drupal_http_request($image, array('method' => 'HEAD'));
+  if (!empty($result->redirect_code) && $result->redirect_code == 301) {
+    $scheme = parse_url($uri['path'], PHP_URL_SCHEME);
+    $image = $scheme . ':' . $result->redirect_url;
+  }
+
+  // Copy the image to local cache if $refresh is set, then return
+  // the cached image.
+  if ($remote = (strpos($image, 'http') === 0)) {
+    if ($refresh) {
+      $filepath = system_retrieve_file($image, $cache, FALSE, FILE_EXISTS_REPLACE);
+    }
+    else {
+      $filepath = $cache;
+    }
+  }
+  return $filepath;
 }

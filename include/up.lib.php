@@ -7,6 +7,7 @@
 define('UP_API_HOST',  'https://jawbone.com');
 define('UP_AUTH_URI',  'https://jawbone.com/auth/oauth2/auth');
 define('UP_TOKEN_URI', 'https://jawbone.com/auth/oauth2/token');
+define('UP_CACHE',     'public://up');
 
 /**
  * Because why not?

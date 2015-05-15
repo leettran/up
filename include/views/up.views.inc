@@ -102,9 +102,9 @@ function up_views_data() {
     ),
     'image_url' => array(
       'title' => t('Image'),
-      'help' => t('The image URL for the band.'),
+      'help' => t('The profile image for the band.'),
       'field' => array(
-        'handler' => 'views_handler_field',
+        'handler' => 'up_views_handler_field_image',
         'click sortable' => TRUE,
       ),
       'filter' => array(
@@ -379,6 +379,34 @@ function up_views_data() {
       'argument' => array(
         'field' => 'completed',
         'handler' => 'views_handler_argument_node_created_week',
+      ),
+    ),
+    'snapshot' => array(
+      'title' => t('Snapshot'),
+      'help' => t('The snapshot for the summary.'),
+      'field' => array(
+        'handler' => 'up_views_handler_field_image',
+        'click sortable' => TRUE,
+      ),
+      'filter' => array(
+        'handler' => 'views_handler_filter_string',
+      ),
+      'sort' => array(
+        'handler' => 'views_handler_sort',
+      ),
+    ),
+    'image' => array(
+      'title' => t('Image'),
+      'help' => t('The image for the summary.'),
+      'field' => array(
+        'handler' => 'up_views_handler_field_image',
+        'click sortable' => TRUE,
+      ),
+      'filter' => array(
+        'handler' => 'views_handler_filter_string',
+      ),
+      'sort' => array(
+        'handler' => 'views_handler_sort',
       ),
     ),
   );
