@@ -71,10 +71,21 @@ function up_band_form($form, $form_state, $band) {
     );
   }
   else {
+    // Fetch the token, so we cna display expiry info.
+    $account = user_load($band->uid);
+    $token = up_token_load_by_user($account);
+    $form['refresh'] = array(
+      '#type'   => 'submit',
+      '#value'  => t('Refresh API token'),
+    );
     $form['delete'] = array(
       '#type'   => 'submit',
       '#value'  => t('Remove UP'),
-      '#suffix' => '<br />' . t('When you remove this UP, all associated data and status will be removed as well.'),
+    );
+    $form['other'] = array(
+      '#markup'=> ''
+        . '<br />' . t('The current API token expires on @expiry.', array('@expiry' => format_date($token->expires, 'long')))
+        . '<br />' . t('When you remove this UP, all associated data and status will be removed as well.')
     );
   }
   return $form;
@@ -98,6 +109,34 @@ function up_band_form_validate($form, &$form_state) {
  */
 function up_band_form_submit($form, &$form_state) {
 
+  // Refreshing the token?
+  if (isset($form_state['values']['refresh'])) {
+    $band = $form_state['build_info']['args'][0];
+    $account = user_load($band->uid);
+    $token = up_token_load_by_user($account);
+
+    $key = variable_get('up_client_id', '');
+    $secret = variable_get('up_app_secret', '');
+
+    module_load_include('php', 'up', 'up.lib');
+
+    try {
+      $auth = new JawboneAuth($key, $secret);
+      $response = drupal_http_request($auth->get_token_refresh_url($token->refresh_token), array('method' => 'POST'));
+
+      // Hurray, we have a response!
+      $json = $auth->decode_response($response);
+
+      $token->refresh_token = $json->refresh_token;
+      up_token_save($token);
+      drupal_set_message(t('Updated API token for @band', array('@band' => theme('band_name', array('band' => $band)))));
+    } catch (Exception $e) {
+      watchdog('up', 'Jawbone UP API: @error', array('@error' => (string)$e), WATCHDOG_ERROR);
+      drupal_set_message(t('Jawbone UP authentication request failed'), 'error');
+    }
+    return;
+  }
+
   // Deleting this band?
   if (isset($form_state['values']['delete'])) {
     // Grab all the things we're deleting.
@@ -109,7 +148,7 @@ function up_band_form_submit($form, &$form_state) {
     up_band_delete($band);
     up_token_delete($token);
 
-    drupal_set_message(t('Deleted %band\'s band', array('%band' => $band->first_name . ' ' . $band->last_name)));
+    drupal_set_message(t('Deleted @band', array('@band' => theme('band_name', array('band' => $band)))));
     return;
   }
 
@@ -144,7 +183,7 @@ function up_form_user_profile_form_alter(&$form, &$form_state) {
   $form['up'] = array(
     '#type'        => 'fieldset',
     '#title'       => t('Jawbone UP'),
-    '#description' => (!empty($band)) ? t('Your account is currently linked to %band\'s UP.', array('%band' => $band->first_name . ' ' . $band->last_name)) : '',
+    '#description' => (!empty($band)) ? t('Your account is linked to %band.', array('%band' => theme('up_band_name', array('band' => $band)))) : '',
     '#tree'        => TRUE,
   );
 
@@ -164,7 +203,7 @@ function up_user_view($account, $view_mode, $langcode) {
       $account->content['up']['info'] = array(
         '#type'       => 'user_profile_item',
         '#title'      => t('Jawbone UP'),
-        '#markup'     => t('%band\'s UP is linked to this account.', array('%band' => $band->first_name . ' ' . $band->last_name)),
+        '#markup'     => t('%band is linked to this account.', array('%band' => theme('up_band_name', array('band' => $band)))),
         '#attributes' => array('class'=> array('up')),
       );
     }
@@ -194,7 +233,7 @@ function up_band_image($band) {
     'path' => up_image($band->image_url),
     'height' => '64',
     'width' => '64',
-    'alt' => t('UP profile for @first @last', array('@first' => $band->first_name, '@last' => $band->last_name)),
+    'alt' => t('UP profile for @band', array('@band' => theme('up_band_name', array('band' => $band)))),
     'attributes' => array('class' => array('up')),
   );
   return theme('image', $variables);
@@ -224,6 +263,17 @@ function up_api_config($token) {
 }
 
 /**
+ * Return a custom config array for the Up class.
+ *
+ * This config array can only be used to refresh the authentication tokens.
+ */
+function up_api_refresh_config($token) {
+  $config = up_api_config($token);
+  $config['refresh_token'] = $token->refresh_token;
+  return $config;
+}
+
+/**
  * Implements hook_cron().
  *
  * @TODO: Use a batch job.
@@ -247,6 +297,12 @@ function up_cron() {
  */
 function up_theme() {
   return array(
+    'up_band_name' => array(
+      'variables' => array(
+        'band' => NULL,
+      ),
+      'file' => 'up.theme.inc'
+    ),
     'up_image_style' => array(
       'variables' => array(
         'style_name' => NULL,

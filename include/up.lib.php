@@ -56,6 +56,19 @@ class JawboneAuth {
   }
 
   /**
+   * Return the UP OAuth2 token refresh URL.
+   */
+  public function get_token_refresh_url($refresh_token) {
+    $params = array(
+      'grant_type'    => 'refresh_token',
+      'client_id'     => $this->client_id,
+      'client_secret' => $this->app_secret,
+      'refresh_token' => $refresh_token,
+    );
+    return url(UP_TOKEN_URI, array('query' => $params, 'absolute' => TRUE));
+  }
+
+  /**
    * Parse a JSON response.
    */
   public function decode_response($response) {

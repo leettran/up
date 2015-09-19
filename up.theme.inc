@@ -4,6 +4,16 @@
  * Theme functions for Jawbone UP.
  */
 
+/**
+ * Display a pretty band name.
+ */
+function theme_up_band_name($variables) {
+  return t('@band\'s UP', array('@band' => $variables['band']->first_name . ' ' . $variables['band']->last_name));
+}
+
+/**
+ * Display a locally cached preformatted image.
+ */
 function theme_up_image_style($variables) {
   // Determine the dimensions of the styled image.
   $dimensions = array(
