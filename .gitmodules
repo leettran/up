@@ -1,0 +1,3 @@
+[submodule "up2_hacking"]
+	path = up2_hacking
+	url = git@github.com/cybercase/up2_hacking
